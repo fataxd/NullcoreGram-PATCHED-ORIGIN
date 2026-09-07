@@ -1,6 +1,5 @@
 package org.telegram.tgnet
 
-import android.util.Log
 
 import org.chromium.net.CronetException
 import org.chromium.net.UploadDataProviders
@@ -172,10 +171,6 @@ object CronetHttpClient {
                     request: UrlRequest,
                     info: UrlResponseInfo
                 ) {
-                    Log.d(
-                        "CronetHttpClient",
-                        "CRONET RESULT code=${info.httpStatusCode} protocol=${info.negotiatedProtocol} url=$url"
-                    )
 
                     result.set(
                         Response(

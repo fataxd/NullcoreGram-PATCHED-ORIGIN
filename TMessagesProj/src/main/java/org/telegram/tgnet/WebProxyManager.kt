@@ -290,7 +290,6 @@ object WebProxyManager {
         proxyThread = thread(start = true, name = "WebProxyThread") {
             val currentThread = Thread.currentThread()
             try {
-                Log.d(TAG, "WebProxy ServerSocket started on port $localPort for address $proxyAddress")
                 
                 var cleanHost = proxyAddress
                 if (cleanHost.startsWith("wss://")) cleanHost = cleanHost.substring(6)
@@ -375,7 +374,6 @@ object WebProxyManager {
                     Log.e(TAG, "WebProxy error", e)
                     try { Thread.sleep(3000) } catch (_: Exception) {}
                     if (isRunning.get() && Thread.currentThread() == proxyThread) {
-                        Log.d(TAG, "Restarting WebProxy...")
                         start(proxyAddress) 
                     }
                 }
@@ -386,7 +384,6 @@ object WebProxyManager {
     @Synchronized
     fun stop() {
         if (!isRunning.compareAndSet(true, false)) return
-        Log.d(TAG, "WebProxy stopping...")
         currentHost = ""
         localPort = 0
         try { serverSocket?.close() } catch (_: Exception) {}
@@ -600,7 +597,6 @@ class SessionHandler(
         while (offset < body.size) {
             if (body.size - offset < 8) {
                 Log.e(TAG, "Incomplete frame header")
-                println("WEBPROXY_ERROR: Incomplete frame header")
                 break
             }
 
@@ -613,22 +609,16 @@ class SessionHandler(
                        ((body[offset + 6].toInt() and 0xFF) shl 8) or
                        (body[offset + 7].toInt() and 0xFF)
 
-            Log.d(
-                TAG,
-                "HTTPS DOWN FRAME type=$type stream=$streamId size=$size total=${body.size} age=${sessionAgeMs()}ms"
-            )
 
             val end = offset + 8 + size
             if (size < 0 || size > 1048576 || end > body.size) {
                 Log.e(TAG, "Invalid frame size: $size")
-                println("WEBPROXY_ERROR: Invalid frame size $size")
                 break
             }
 
             if (type == 2) {
                 if (streamId == 0) {
                     Log.e(TAG, "DATA frame with stream id 0")
-                    println("WEBPROXY_ERROR: DATA frame with stream id 0")
                     stop()
                     break
                 }
@@ -647,14 +637,11 @@ class SessionHandler(
                     if (!isRunning.get()) break
                 }
             } else if (type == 3) {
-                Log.d(TAG, "Received CLOSE frame")
-                println("WEBPROXY: Received CLOSE frame")
                 stop()
                 break
             } else if (type == 4) {
                 if (streamId == 0 || size != 4) {
                     Log.e(TAG, "Invalid WINDOW frame: stream=$streamId size=$size")
-                    println("WEBPROXY_ERROR: Invalid WINDOW frame")
                     stop()
                     break
                 }
@@ -667,7 +654,6 @@ class SessionHandler(
 
                 if (delta == 0L) {
                     Log.e(TAG, "WINDOW frame with zero delta")
-                    println("WEBPROXY_ERROR: WINDOW frame with zero delta")
                     stop()
                     break
                 }
@@ -712,10 +698,6 @@ class SessionHandler(
                 delta.toByte()
             )
 
-            Log.d(
-                TAG,
-                "HTTPS WINDOW BATCH stream=$streamId delta=$delta age=${sessionAgeMs()}ms"
-            )
 
             sendDataRaw(createFrame(4, streamId, windowDelta))
             deltaToSend -= delta
@@ -730,7 +712,6 @@ class SessionHandler(
         while (offset < bodySize) {
             if (bodySize - offset < 8) {
                 Log.e(TAG, "Incomplete WebSocket frame header")
-                println("WEBPROXY_ERROR: Incomplete WebSocket frame header")
                 break
             }
 
@@ -750,14 +731,12 @@ class SessionHandler(
 
             if (size < 0 || size > 1048576 || end > bodySize) {
                 Log.e(TAG, "Invalid WebSocket frame size: $size")
-                println("WEBPROXY_ERROR: Invalid WebSocket frame size $size")
                 break
             }
 
             if (type == 2) {
                 if (streamId == 0) {
                     Log.e(TAG, "DATA frame with stream id 0")
-                    println("WEBPROXY_ERROR: DATA frame with stream id 0")
                     stop()
                     break
                 }
@@ -798,14 +777,11 @@ class SessionHandler(
                     if (!isRunning.get()) break
                 }
             } else if (type == 3) {
-                Log.d(TAG, "Received CLOSE frame")
-                println("WEBPROXY: Received CLOSE frame")
                 stop()
                 break
             } else if (type == 4) {
                 if (streamId == 0 || size != 4) {
                     Log.e(TAG, "Invalid WINDOW frame: stream=$streamId size=$size")
-                    println("WEBPROXY_ERROR: Invalid WINDOW frame")
                     stop()
                     break
                 }
@@ -818,7 +794,6 @@ class SessionHandler(
 
                 if (delta == 0L) {
                     Log.e(TAG, "WINDOW frame with zero delta")
-                    println("WEBPROXY_ERROR: WINDOW frame with zero delta")
                     stop()
                     break
                 }
@@ -915,16 +890,7 @@ class SessionHandler(
                         carrierMode =
                             sessionResponse.header("X-Carrier-Mode") ?: "https"
 
-                        Log.d(
-                            TAG,
-                            "Session created successfully host=$activeHostname " +
-                                "carrier mode: $carrierMode"
-                        )
 
-                        println(
-                            "WEBPROXY: Session created successfully " +
-                                "host=$activeHostname carrier mode: $carrierMode"
-                        )
 
                         setupComplete = true
                     } catch (setupError: Exception) {
@@ -973,7 +939,6 @@ class SessionHandler(
                             ws = webSocket
                             connected = true
                             setupStage = "WS_OPEN"
-                            Log.d(TAG, "WS OPEN carrier=$carrierMode age=${sessionAgeMs()}ms")
                             latch.countDown()
                         }
 
@@ -991,10 +956,6 @@ class SessionHandler(
                             code: Int,
                             reason: String
                         ) {
-                            Log.w(
-                                TAG,
-                                "WS CLOSING code=$code reason=$reason age=${sessionAgeMs()}ms"
-                            )
                         }
 
                         override fun onClosed(
@@ -1002,10 +963,6 @@ class SessionHandler(
                             code: Int,
                             reason: String
                         ) {
-                            Log.w(
-                                TAG,
-                                "WS CLOSED code=$code reason=$reason age=${sessionAgeMs()}ms"
-                            )
                             stop()
                         }
 
@@ -1051,7 +1008,6 @@ class SessionHandler(
                         while (isRunning.get() && !socket.isClosed) {
                             val r = socket.getInputStream().read(buffer)
                             if (r < 0) {
-                                Log.w(TAG, "TGNET EOF age=${sessionAgeMs()}ms")
                                 break
                             }
                             if (r > 0) sendData(buffer, r)
@@ -1059,7 +1015,6 @@ class SessionHandler(
                     } catch (e: Exception) {
                         Log.e(TAG, "TGNET READ ERROR age=${sessionAgeMs()}ms", e)
                     } finally {
-                        Log.w(TAG, "TGNET READ THREAD END age=${sessionAgeMs()}ms")
                         stop()
                     }
                 }
@@ -1149,7 +1104,6 @@ class SessionHandler(
             val sent = ws?.send(frameData.toByteString()) ?: false
             if (!sent && isRunning.get()) {
                 Log.e(TAG, "WebSocket uplink queue rejected frame")
-                println("WEBPROXY_ERROR: WebSocket uplink queue rejected frame")
                 stop()
             }
             return
@@ -1204,12 +1158,6 @@ class SessionHandler(
                     consecutiveRetryableFailures = 0
 
                     if (response.code == 204) {
-                        Log.d(
-                            TAG,
-                            "CRONET UP 204 protocol=${response.protocol} " +
-                                "carrier=$carrierMode seq=$seq " +
-                                "bytes=${frameData.size} age=${sessionAgeMs()}ms"
-                        )
                         return
                     }
 
@@ -1221,9 +1169,6 @@ class SessionHandler(
                             Log.e(
                                 TAG,
                                 "Cronet uplink retry budget exhausted for seq $seq"
-                            )
-                            println(
-                                "WEBPROXY_ERROR: Cronet uplink retry budget exhausted"
                             )
                             stop()
                             return
@@ -1247,11 +1192,6 @@ class SessionHandler(
                         val delayMs =
                             minOf(requestedDelayMs, remainingMs)
 
-                        Log.w(
-                            TAG,
-                            "CRONET UP 503 RETRY seq=$seq " +
-                                "delay=${delayMs}ms age=${sessionAgeMs()}ms"
-                        )
 
                         try {
                             Thread.sleep(delayMs)
@@ -1267,9 +1207,6 @@ class SessionHandler(
                     Log.e(
                         TAG,
                         "Cronet uplink rejected: HTTP ${response.code}"
-                    )
-                    println(
-                        "WEBPROXY_ERROR: Cronet uplink rejected: HTTP ${response.code}"
                     )
                     stop()
                     return
@@ -1307,15 +1244,6 @@ class SessionHandler(
                             val delayMs =
                                 minOf(requestedDelayMs, remainingMs)
 
-                            Log.w(
-                                TAG,
-                                "CRONET UP RETRYABLE " +
-                                    "errorCode=${networkException.errorCode} " +
-                                    "internal=${networkException.cronetInternalErrorCode} " +
-                                    "attempt=$consecutiveRetryableFailures " +
-                                    "seq=$seq delay=${delayMs}ms " +
-                                    "age=${sessionAgeMs()}ms"
-                            )
 
                             try {
                                 Thread.sleep(delayMs)
@@ -1360,7 +1288,6 @@ class SessionHandler(
 
     fun stop() {
         if (!isRunning.compareAndSet(true, false)) return
-        Log.w(TAG, "SESSION STOP stage=$setupStage age=${sessionAgeMs()}ms")
 
         val pendingSetupCall = setupCall.getAndSet(null)
         if (pendingSetupCall != null) {
@@ -1414,13 +1341,8 @@ class SessionHandler(
                         timeoutSeconds = 12
                     )
 
-                    val response = call.execute()
+                    call.execute()
 
-                    Log.d(
-                        TAG,
-                        "CRONET DELETE code=${response.code} " +
-                            "protocol=${response.protocol} age=${sessionAgeMs()}ms"
-                    )
                 } catch (e: Exception) {
                     Log.w(TAG, "Cronet session DELETE failed", e)
                 }
@@ -1471,10 +1393,6 @@ class SessionHandler(
                 consecutiveRetryableFailures = 0
 
                 if (response.code == 204) {
-                    Log.d(
-                        TAG,
-                        "CRONET DOWN 204 protocol=${response.protocol} carrier=$carrierMode cursor=$requestCursor age=${sessionAgeMs()}ms"
-                    )
                     continue
                 }
 
@@ -1487,10 +1405,6 @@ class SessionHandler(
 
                     val body = response.body
 
-                    Log.d(
-                        TAG,
-                        "CRONET DOWN 200 protocol=${response.protocol} carrier=$carrierMode cursor=$requestCursor next=${nextCursor ?: "none"} bytes=${body.size} age=${sessionAgeMs()}ms"
-                    )
 
                     if (body.isNotEmpty()) {
                         try {
@@ -1508,7 +1422,6 @@ class SessionHandler(
                 }
 
                 Log.e(TAG, "Cronet downlink rejected: HTTP ${response.code}")
-                println("WEBPROXY_ERROR: Cronet downlink rejected: HTTP ${response.code}")
                 stop()
                 return
 
@@ -1531,13 +1444,6 @@ class SessionHandler(
                                 1000L
                             )
 
-                        Log.w(
-                            TAG,
-                            "CRONET DOWN RETRYABLE errorCode=${networkException.errorCode} " +
-                                "internal=${networkException.cronetInternalErrorCode} " +
-                                "attempt=$consecutiveRetryableFailures cursor=$requestCursor " +
-                                "delay=${delayMs}ms age=${sessionAgeMs()}ms"
-                        )
 
                         try {
                             Thread.sleep(delayMs)

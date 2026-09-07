@@ -420,11 +420,11 @@ dependencies {
     implementation "org.maplibre.gl:android-sdk:11.13.5"
 
     // Cronet
-    // Public/private keep the current proven native build.
-    publicImplementation files("${rootProject.projectDir}/local-libs/cronet-native-patch/cronet-bundled-500.0.2-no-system-fallback.aar")
-    privateImplementation files("${rootProject.projectDir}/local-libs/cronet-native-patch/cronet-bundled-500.0.2-no-system-fallback.aar")
+    // Public/private use the production copy of the proven strict-ECH Cronet.
+    publicImplementation files("${rootProject.projectDir}/local-libs/cronet-native-patch/cronet-bundled-500.0.2-nullcore-strict-ech.aar")
+    privateImplementation files("${rootProject.projectDir}/local-libs/cronet-native-patch/cronet-bundled-500.0.2-nullcore-strict-ech.aar")
 
-    // LAB exclusively uses the new source-built strict-ECH Cronet.
+    // LAB keeps the byte-identical known-good strict-ECH Cronet test artifact.
     labImplementation files("${rootProject.projectDir}/local-libs/cronet-native-test/cronet-bundled-500.0.2-nullcore-strict-ech-test.aar")
 
     // Cronet Java/API classes are shared by all variants.
